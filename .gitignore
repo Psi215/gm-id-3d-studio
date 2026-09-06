@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 用户本地数据与重命名(勿入仓库)
+csvdata_extras/
+*.meta.json
+
+# 开发脚本产物
+dev/*.png
+dev/_exp_*
+dev/_tmp*
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
