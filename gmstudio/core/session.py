@@ -28,7 +28,7 @@ class Session:
     def __init__(self):
         self.sources: dict[str, Source] = {}
         self.checked: dict[str, set] = {}       # path -> set(base)
-        self.active: dict[str, str] = {}        # path -> base(3D/查表用)
+        self.active: tuple[str, str] | None = None  # 当前 3D/查表指标
         self.xmin = 0.0
         self.xmax = 30.0
         self.Lmin = 0.0
@@ -47,10 +47,14 @@ class Session:
         self._surf_cache: dict = {}
         self._lookup_cache: dict = {}
         self._eff_cache: dict = {}
+        self._display_cache: dict = {}
         self._dirty = True
 
     # ---------------- 数据装载 / 选择 ----------------
     def add_source(self, src: Source):
+        self._display_cache = {
+            k: v for k, v in self._display_cache.items() if k[0] != src.path
+        }
         self.sources[src.path] = src
         self.checked.setdefault(src.path, set())
         self._load_meta(src)
@@ -58,12 +62,14 @@ class Session:
         if not self.checked[src.path] and src.metrics:
             first = next(iter(src.sorted_metrics()))
             self.checked[src.path].add(first.base)
-        self.active.setdefault(src.path, next(iter(self.checked[src.path])))
+        if self.active is None and self.checked[src.path]:
+            self.set_active(src.path, next(iter(self.checked[src.path])))
         self.dirty()
 
     def remove_all(self):
-        self.sources.clear(); self.checked.clear(); self.active.clear()
+        self.sources.clear(); self.checked.clear(); self.active = None
         self._surf_cache.clear(); self._lookup_cache.clear()
+        self._display_cache.clear()
         self.dirty()
 
     def toggle(self, path: str, base: str, on: bool):
@@ -74,14 +80,25 @@ class Session:
             s.add(base)
         else:
             s.discard(base)
-        if self.active.get(path) not in s:
-            self.active[path] = next(iter(s)) if s else ""
+        if self.active == (path, base) and not on:
+            self.active = None
+            for p, bases in self.checked.items():
+                if bases:
+                    self.set_active(p, next(iter(bases)))
+                    break
+        elif self.active is None and on:
+            self.set_active(path, base)
         self.dirty()
 
     def set_active(self, path: str, base: str):
-        if base and base in self.sources[path].metrics:
-            self.active[path] = base
-            self.dirty()
+        src = self.sources.get(path)
+        if src is None or not base or base not in src.metrics:
+            return
+        self.active = (path, base)
+        m = src.metrics[base]
+        if m.profile is not None:
+            self.direction = m.profile.direction
+        self.dirty()
 
     def checked_metrics(self) -> list[Metric]:
         out = []
@@ -96,7 +113,8 @@ class Session:
         return out
 
     def active_metric(self) -> Metric | None:
-        for path, base in self.active.items():
+        if self.active is not None:
+            path, base = self.active
             src = self.sources.get(path)
             if src and base in src.metrics:
                 return src.metrics[base]
@@ -153,6 +171,10 @@ class Session:
         prof = detect_metric(name)
         m.profile = prof
         m.raw_db = is_raw_db(name, prof)
+        self._display_cache = {
+            k: v for k, v in self._display_cache.items()
+            if k[:2] != (m.source_path, m.base)
+        }
         self.save_meta(src)
         self.dirty()
 
@@ -169,7 +191,7 @@ class Session:
                 return np.where(np.isfinite(a) & (a > 0),
                                 20.0 * np.log10(a), -np.inf)
         if mode == PREFIX_DEFAULT and prof is not None and prof.unit:
-            fac, _ = _pick_prefix(a, prof.unit)
+            fac, _ = self._metric_display(m)
             return a * fac
         return a
 
@@ -181,9 +203,23 @@ class Session:
                 and m.profile.db_capable:
             return "dB"
         if mode == PREFIX_DEFAULT and m.profile is not None and m.profile.unit:
-            return _pick_prefix(m.curves[0].y if m.curves else
-                                np.array([1.0]), m.profile.unit)[1]
+            return self._metric_display(m)[1]
         return m.profile.unit if m.profile is not None else ""
+
+    def _metric_display(self, m: Metric):
+        """为一个指标固定工程前缀，避免不同曲线使用不同刻度。"""
+        prof = m.profile
+        if prof is None or not prof.unit:
+            return 1.0, ""
+        key = (m.source_path, m.base, prof.unit)
+        if key in self._display_cache:
+            return self._display_cache[key]
+        vals = [np.asarray(c.y, float).ravel() for c in m.curves
+                if c.y is not None and np.asarray(c.y).size]
+        data = np.concatenate(vals) if vals else np.array([1.0])
+        result = _pick_prefix(data, prof.unit)
+        self._display_cache[key] = result
+        return result
 
     # ---------------- X 轴选择 / 配对 / 清洗 ----------------
     def x_metric_obj(self) -> Metric | None:
@@ -208,7 +244,7 @@ class Session:
     def effective_series(self, m: Metric):
         """返回 (L, x, y) 列表: 若选了 X 轴参数, 则 Y 与所选 X 按行索引
         配对后再清洗排序; 否则用参数自带的 X 列。结果按清洗参数缓存。"""
-        key = (m.source_label, m.base,
+        key = (m.source_path, m.base,
                tuple(self.x_metric) if self.x_metric else None,
                self._clean_sig())
         if key in self._eff_cache:
@@ -260,7 +296,7 @@ class Session:
 
     # ---------------- 曲面 / 查表 ----------------
     def surface_of(self, m: Metric) -> dict | None:
-        key = (m.source_label, m.base, self.xmin, self.xmax, self.Lmin,
+        key = (m.source_path, m.base, self.xmin, self.xmax, self.Lmin,
                self.Lmax, self.npts, self.xlog,
                tuple(self.x_metric) if self.x_metric else None,
                self._clean_sig())
@@ -297,7 +333,7 @@ class Session:
         sf = self.surface_of(m)
         if sf is None or not np.isfinite(sf["Z"]).any():
             return None
-        key = (m.source_label, m.base, self.thr, self.direction,
+        key = (m.source_path, m.base, self.thr, self.direction,
                self.display_mode)
         if key in self._lookup_cache:
             return self._lookup_cache[key]
