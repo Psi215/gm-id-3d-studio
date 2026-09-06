@@ -24,6 +24,7 @@ class Metric:
     base: str                 # 原始列名基名, 如 "M0:1" / "selfgain"
     display: str              # 显示名(可重命名)
     source_label: str         # 来源文件标签
+    source_path: str          # 来源文件唯一标识; 同名文件不能共用缓存/选择状态
     x_name: str = "X"         # X 轴名称(可重命名, 如 "vgs (V)")
     profile: object = None    # gmidlib.metrics.MetricProfile
     raw_db: bool = False

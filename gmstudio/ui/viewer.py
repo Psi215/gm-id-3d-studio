@@ -333,7 +333,8 @@ class MainWindow(QMainWindow):
         self.cmb_active.blockSignals(True)
         self.cmb_active.clear()
         for m in self.sess.checked_metrics():
-            self.cmb_active.addItem(f"{m.source_label} · {m.display}", ())
+            key = m.source_path + "\u0001" + m.base
+            self.cmb_active.addItem(f"{m.source_label} · {m.display}", key)
         idx = -1
         for i, m in enumerate(self.sess.checked_metrics()):
             if m is am:
@@ -359,11 +360,10 @@ class MainWindow(QMainWindow):
         self.cmb_x.setCurrentIndex(sel)
         self.cmb_x.blockSignals(False)
         self.lb_xlab.setText("X 轴: " + self.sess.x_label())
-        # 查表方向默认
-        if am is not None and am.profile is not None:
-            j = self.cmb_dir.findData(am.profile.direction)
-            if j >= 0:
-                self.cmb_dir.setCurrentIndex(j)
+        # 控件必须反映真实会话状态; 指标切换时由 Session 设置档案默认方向
+        j = self.cmb_dir.findData(self.sess.direction)
+        if j >= 0:
+            self.cmb_dir.setCurrentIndex(j)
         # 显示模式 -> 控件
         mode_i = {"raw": 0, "prefix": 1, "dB": 2}[self.sess.display_mode]
         self.cmb_disp.setCurrentIndex(mode_i)
@@ -435,19 +435,12 @@ class MainWindow(QMainWindow):
     def _on_active(self):
         if self._loading:
             return
-        i = self.cmb_active.currentIndex()
-        ms = self.sess.checked_metrics()
-        if 0 <= i < len(ms):
-            m = ms[i]
-            path = None
-            for p, src in self.sess.sources.items():
-                if m.base in src.metrics and m.source_label == src.label:
-                    path = p
-                    break
-            if path:
-                self.sess.set_active(path, m.base)
-                self._sync_from_session(fill_spins=False)
-                self.refresh()
+        data = self.cmb_active.currentData()
+        if data:
+            path, base = str(data).split("\u0001", 1)
+            self.sess.set_active(path, base)
+            self._sync_from_session(fill_spins=False)
+            self.refresh()
 
     def _on_xsel(self):
         """用户选择 X 轴参数(默认 gmid 之类) -> 重配对并重绘。"""
