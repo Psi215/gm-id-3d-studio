@@ -56,12 +56,17 @@ def main() -> int:
         assert not hasattr(w, attr), f"主窗口不应再有 {attr}"
     print("  主窗口 = 控制台(无 2D/3D 面板) OK")
 
-    print("== 2) 每个参数一个独立窗口 ==")
+    print("== 2) 每个参数一个独立窗口(双击/勾选才开) ==")
     src = w.sess.sources[SELFGAIN]
     base = next(iter(src.metrics))
-    win1 = w.open_metric_window(SELFGAIN, base)
-    win2 = w.open_metric_window(FT, next(iter(w.sess.sources[FT].metrics)))
+    ft_base = next(iter(w.sess.sources[FT].metrics))
+    assert not w.windows, "载入后不应自动开窗"
+    w.sess.toggle(SELFGAIN, base, True)      # 等价于双击打开
+    w.sess.toggle(FT, ft_base, True)
+    w._on_tree()
     pump(app, 30)
+    win1 = w.windows.get((SELFGAIN, base))
+    win2 = w.windows.get((FT, ft_base))
     assert win1 is not None and win2 is not None
     assert len(w.windows) == 2 and w.lst_wins.count() == 2
     print("  窗口:", [f"{x.mt.display}" for x in w.windows.values()])

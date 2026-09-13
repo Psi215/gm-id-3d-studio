@@ -115,9 +115,14 @@ class TestSameNameSources(unittest.TestCase):
         sess = Session()
         sa, sb = load_file(self.pa), load_file(self.pb)
         sess.add_source(sa); sess.add_source(sb)
+        # 载入时不再默认勾选(勾选=开窗, 由用户决定)
+        self.assertEqual(sess.checked[self.pa], set())
+        self.assertEqual(sess.checked[self.pb], set())
+        sess.toggle(self.pa, "selfgain", True)
+        self.assertIn("selfgain", sess.checked[self.pa])
+        self.assertNotIn("selfgain", sess.checked[self.pb])   # 同名文件互不影响
         sess.toggle(self.pa, "selfgain", False)
         self.assertNotIn("selfgain", sess.checked[self.pa])
-        self.assertIn("selfgain", sess.checked[self.pb])
 
 
 class TestDirectionAndView(unittest.TestCase):

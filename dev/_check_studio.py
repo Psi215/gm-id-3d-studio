@@ -61,13 +61,27 @@ def main() -> int:
 
     wsrc = w.sess.sources[TOTAL]
     bases = [m.base for m in wsrc.sorted_metrics()[:3]]
-    # 载入后自动为“已勾选的首个参数”开窗
-    assert len(w.windows) == 1, f"应自动开 1 个窗口, 实际 {len(w.windows)}"
+    # 启动/载入不自动开图: 必须用户双击(或勾选)才开窗
+    assert len(w.windows) == 0, f"载入后不应自动开窗, 实际 {len(w.windows)}"
+    print("  载入后窗口数:", len(w.windows), "(需双击打开) OK")
+    # 模拟双击第一个参数 -> 开窗
+    w.sess.toggle(TOTAL, bases[0], True)
+    w._on_tree()
+    pump(app, 30)
+    assert len(w.windows) == 1
     win = next(iter(w.windows.values()))
-    print(f"  自动开窗: {win.mt.display} | 曲线 {len(win._series)} 条"
+    print(f"  双击打开: {win.mt.display} | 曲线 {len(win._series)} 条"
           f" | 查表行 {win.table.rowCount()}")
     assert len(win._series) > 0
     assert win.surface_win is None            # 三维窗口不常驻
+    # “显示文件”过滤: 只显示某个文件
+    assert w.cmb_file.count() >= 2, "应有『全部文件』+ 每个文件"
+    w.cmb_file.setCurrentIndex(1)
+    pump(app, 10)
+    assert w.tree.file_filter == TOTAL
+    print("  参数树文件过滤:", w.cmb_file.currentText())
+    w.cmb_file.setCurrentIndex(0)
+    pump(app, 10)
 
     w.sess.toggle(TOTAL, bases[1], True)
     w.sess.toggle(TOTAL, bases[2], True)

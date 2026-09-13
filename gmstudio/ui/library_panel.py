@@ -8,7 +8,8 @@ import subprocess
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMenu, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QListWidgetItem, QMenu, QMessageBox, QPushButton, QSizePolicy,
+    QVBoxLayout, QWidget,
 )
 
 
@@ -36,7 +37,9 @@ class LibraryPanel(QWidget):
         row.addWidget(b)
         lay.addLayout(row)
         self.lst = QListWidget()
-        self.lst.setMaximumHeight(170)
+        # 不设固定高度: 内容多长就多长(配合可折叠区块, 小窗口也能滚动看全)
+        self.lst.setMinimumHeight(110)
+        self.lst.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # 双击 = 打开(已加载再双击 = 卸载); 不再用勾选触发
         self.lst.itemDoubleClicked.connect(self._on_dclick)
         self.lst.setContextMenuPolicy(Qt.CustomContextMenu)

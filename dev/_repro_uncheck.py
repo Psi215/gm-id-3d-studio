@@ -42,17 +42,16 @@ def main() -> int:
     w = MainWindow(restore=False)
     w.open_paths([FT, INOR])
     pump(app, 30)
-    # 默认每个文件勾选第一个参数 -> 两个窗口
     assert len(w.sess.sources) == 2
-    for path, bases in w.sess.checked.items():
-        for b in list(bases):
-            pass
-    w._on_tree()
-    pump(app, 20)
-    print("打开窗口数:", len(w.windows), "| 树顶层:", w.tree.tree.topLevelItemCount())
+    # 新行为: 载入不开图; 先在树里勾选两个参数(相当于双击打开)
+    tree = w.tree.tree
+    for i in range(tree.topLevelItemCount()):
+        tree.topLevelItem(i).child(0).setCheckState(0, Qt.Checked)
+        pump(app, 20)
+    print("打开窗口数:", len(w.windows),
+          "| 树顶层:", tree.topLevelItemCount())
     assert len(w.windows) == 2
 
-    tree = w.tree.tree
     for k in range(4):
         state = Qt.Unchecked if k % 2 == 0 else Qt.Checked
         item = tree.topLevelItem(1).child(0)     # 每次开/关窗后重新取条目

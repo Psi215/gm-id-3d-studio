@@ -11,8 +11,8 @@ from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtWidgets import (QSizePolicy, QToolButton, QVBoxLayout, QWidget)
 
 rcParams["font.sans-serif"] = [
     "Microsoft YaHei", "SimHei", "Noto Sans CJK SC",
@@ -179,6 +179,59 @@ class NoWheelFilter(QObject):
 
 
 _WHEEL_FILTER = None
+
+
+class CollapsibleSection(QWidget):
+    """可展开/折叠的区块(展开式设计, 不设固定高度, 内容多长就多长)。
+
+    用法: sec = CollapsibleSection("标题"); sec.body_lay.addWidget(...)
+    """
+
+    def __init__(self, title: str, parent=None, expanded: bool = True):
+        super().__init__(parent)
+        self._title = title
+        self._btn = QToolButton()
+        self._btn.setText(title)
+        self._btn.setCheckable(True)
+        self._btn.setChecked(expanded)
+        self._btn.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
+        self._btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._btn.setCursor(Qt.PointingHandCursor)
+        self._btn.setStyleSheet(
+            "QToolButton{border:none;background:transparent;font-weight:600;"
+            "color:#33405c;padding:5px 4px;text-align:left;}")
+        self._btn.clicked.connect(self._on_clicked)
+        self.body = QWidget()
+        self.body_lay = QVBoxLayout(self.body)
+        self.body_lay.setContentsMargins(8, 2, 8, 8)
+        self.body_lay.setSpacing(5)
+        self.body.setVisible(expanded)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(2, 2, 2, 2)
+        lay.setSpacing(0)
+        lay.addWidget(self._btn)
+        lay.addWidget(self.body)
+        self.setStyleSheet(
+            "CollapsibleSection{border:1px solid #dde3ee;border-radius:8px;"
+            "background:#ffffff;}")
+
+    # ---- 展开/折叠 ----
+    def is_expanded(self) -> bool:
+        return self._btn.isChecked()
+
+    def set_expanded(self, on: bool):
+        self._btn.setChecked(bool(on))
+        self._btn.setArrowType(Qt.DownArrow if on else Qt.RightArrow)
+        self.body.setVisible(bool(on))
+
+    def _on_clicked(self):
+        self.set_expanded(self._btn.isChecked())
+
+    def set_title(self, text: str):
+        self._title = text
+        self._btn.setText(text)
+
 
 
 def install_no_wheel_filter(app=None):

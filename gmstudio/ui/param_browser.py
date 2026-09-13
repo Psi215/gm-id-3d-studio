@@ -26,6 +26,7 @@ class ParamTree(QWidget):
         self.session = session
         self.on_changed = on_changed or (lambda: None)
         self.dclick_handler = None      # 外部(主窗口)可接管双击行为
+        self.file_filter = None         # 只显示某个文件的参数(None=全部)
         self._notify_pending = False
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -58,7 +59,10 @@ class ParamTree(QWidget):
         self.tree.blockSignals(True)
         self.tree.clear()
         text = self.search.text().strip().lower()
+        only = getattr(self, "file_filter", None)   # None = 全部文件
         for path, src in self.session.sources.items():
+            if only is not None and path != only:
+                continue
             top = QTreeWidgetItem([f"📁 {src.label}", ""])
             top.setData(0, Qt.UserRole, ("src", path))
             top.setFlags(top.flags() & ~Qt.ItemIsUserCheckable)

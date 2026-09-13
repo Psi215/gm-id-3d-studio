@@ -26,7 +26,7 @@ from .library_panel import LibraryPanel
 from .param_browser import ParamTree, SelectorWindow
 from .plot_window import PlotWindow
 from .theme import apply as apply_theme
-from .widgets import install_no_wheel_filter, mkspin
+from .widgets import CollapsibleSection, install_no_wheel_filter, mkspin
 
 
 class MainWindow(QMainWindow):
@@ -54,56 +54,70 @@ class MainWindow(QMainWindow):
 
     # ================= UI =================
     def _build_ui(self):
-        # ---- 左: 打开的窗口 + 提示 ----
-        left = QWidget(); ll = QVBoxLayout(left)
-        g = QGroupBox("打开的绘图窗口(双击置前)")
-        v = QVBoxLayout(g)
+        # ---------------- 左列: 窗口 / 用法(可折叠区块) ----------------
+        left = QWidget()
+        ll = QVBoxLayout(left); ll.setSpacing(6)
+
+        self.sec_wins = CollapsibleSection("打开的绘图窗口(双击置前)")
+        v = self.sec_wins.body_lay
         self.lst_wins = QListWidget()
+        self.lst_wins.setMinimumHeight(140)
         self.lst_wins.itemDoubleClicked.connect(self._raise_win)
         v.addWidget(self.lst_wins, 1)
         row = QHBoxLayout()
-        b = QPushButton("全部置前"); b.clicked.connect(self._raise_all)
-        row.addWidget(b)
-        b = QPushButton("全部关闭"); b.clicked.connect(self.close_all_windows)
-        row.addWidget(b)
-        b = QPushButton("全部重绘"); b.clicked.connect(lambda: self.refresh(True))
-        row.addWidget(b)
+        for text, fn in (("全部置前", self._raise_all),
+                         ("全部关闭", self.close_all_windows),
+                         ("全部重绘", lambda: self.refresh(True))):
+            b = QPushButton(text); b.clicked.connect(fn); row.addWidget(b)
         v.addLayout(row)
-        ll.addWidget(g, 1)
-        g = QGroupBox("用法")
-        v = QVBoxLayout(g)
+        ll.addWidget(self.sec_wins, 1)
+
+        self.sec_help = CollapsibleSection("用法")
         hint = QLabel(
-            "1) 「库」导入数据文件 → 勾选即加载(不必每次导入)\n"
-            "2) 「参数」树勾选/双击 = 打开该参数的独立 2D 窗口\n"
-            "3) 每个窗口有自己的范围、对数轴、平滑、显示单位、查表阈值\n"
+            "1) 「数据库」双击条目 = 打开 / 再双击卸载(不会自动打开图像)\n"
+            "2) 「参数」树双击(或勾选) = 打开该参数的独立 2D 窗口\n"
+            "3) 每个窗口有自己的范围/对数轴/平滑/显示单位/查表阈值\n"
             "4) 窗口里「三维曲面…」按需打开 3D 窗口(不常驻)\n"
-            "5) 窗口内: ＋竖线/＋横线 可拖动看交点值; 测斜率(A→B) 取两点\n"
-            "6) Ctrl+R 窗口内自动范围; 主窗口默认约束只影响新建窗口")
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color:#555;")
-        v.addWidget(hint)
-        ll.addWidget(g)
+            "5) 窗口内: ＋竖线/＋横线 拖动读交点值; 测斜率(A→B) 取两点\n"
+            "6) Ctrl+R 窗口内自动范围; 主窗口「默认约束」只影响新开窗口")
+        hint.setWordWrap(True); hint.setStyleSheet("color:#555;")
+        self.sec_help.body_lay.addWidget(hint)
+        ll.addWidget(self.sec_help, 0)
         left.setMinimumWidth(300)
 
-        # ---- 右: 控制面板 ----
-        right = QWidget(); right.setMinimumWidth(360)
+        # ---------------- 右列: 数据库 / 参数 / 默认约束 ----------------
+        right = QWidget(); right.setMinimumWidth(380)
         rl = QVBoxLayout(right); rl.setSpacing(6)
 
-        g = QGroupBox("⓪ 数据库(勾选即加载)")
-        v = QVBoxLayout(g)
+        row = QHBoxLayout()
+        b = QPushButton("全部展开")
+        b.clicked.connect(lambda: self._set_all_sections(True))
+        row.addWidget(b)
+        b = QPushButton("全部折叠")
+        b.clicked.connect(lambda: self._set_all_sections(False))
+        row.addWidget(b)
+        row.addStretch(1)
+        rl.addLayout(row)
+
+        self.sec_lib = CollapsibleSection("⓪ 数据库(双击条目 = 打开 / 再双击卸载)")
         self.lib_panel = LibraryPanel(self.library, on_load=self._lib_load,
                                       on_unload=self._lib_unload)
-        v.addWidget(self.lib_panel)
-        rl.addWidget(g)
+        self.sec_lib.body_lay.addWidget(self.lib_panel)
+        rl.addWidget(self.sec_lib, 2)
 
-        g = QGroupBox("① 参数(勾选/双击 = 打开独立窗口)")
-        v = QVBoxLayout(g)
+        self.sec_params = CollapsibleSection("① 参数(双击 = 打开独立窗口)")
+        v = self.sec_params.body_lay
         row = QHBoxLayout()
-        b = QPushButton("打开选中为窗口")
-        b.setObjectName("primary"); b.clicked.connect(self._open_selected)
-        row.addWidget(b)
-        b = QPushButton("重命名选中")
-        b.clicked.connect(self.rename_selected)
+        row.addWidget(QLabel("显示文件:"))
+        self.cmb_file = QComboBox()
+        self.cmb_file.setToolTip("只显示某个文件的参数(便于参数很多时查找)")
+        self.cmb_file.currentIndexChanged.connect(self._on_file_filter)
+        row.addWidget(self.cmb_file, 1)
+        v.addLayout(row)
+        row = QHBoxLayout()
+        b = QPushButton("打开选中为窗口"); b.setObjectName("primary")
+        b.clicked.connect(self._open_selected); row.addWidget(b)
+        b = QPushButton("重命名选中"); b.clicked.connect(self.rename_selected)
         row.addWidget(b)
         v.addLayout(row)
         row = QHBoxLayout()
@@ -115,12 +129,14 @@ class MainWindow(QMainWindow):
         row.addWidget(b)
         v.addLayout(row)
         self.tree = ParamTree(self.sess, on_changed=self._on_tree)
-        self.tree.dclick_handler = self._tree_dclick   # 双击 = 打开窗口
+        self.tree.dclick_handler = self._tree_dclick
+        self.tree.tree.setMinimumHeight(240)
         v.addWidget(self.tree, 1)
-        rl.addWidget(g, 3)
+        rl.addWidget(self.sec_params, 3)
 
-        g = QGroupBox("② 新窗口默认约束(不影响已开的窗口)")
-        v = QVBoxLayout(g)
+        self.sec_defaults = CollapsibleSection(
+            "② 新窗口默认约束(不影响已开窗口)", expanded=False)
+        v = self.sec_defaults.body_lay
         self.sp_xmin = mkspin(-1e12, 1e12, 0.0)
         self.sp_xmax = mkspin(-1e12, 1e12, 30.0)
         self.sp_Lmin = mkspin(0, 1e6, 0.0, 4)
@@ -165,21 +181,18 @@ class MainWindow(QMainWindow):
         row.addWidget(self.sp_thr, 1)
         v.addLayout(row)
         row = QHBoxLayout()
-        b = QPushButton("自动(按已开窗口数据)")
-        b.clicked.connect(self._auto_defaults)
-        row.addWidget(b)
+        b = QPushButton("自动(按已打开的参数)")
+        b.clicked.connect(self._auto_defaults); row.addWidget(b)
         b = QPushButton("推给所有窗口")
-        b.clicked.connect(self._push_defaults)
-        row.addWidget(b)
+        b.clicked.connect(self._push_defaults); row.addWidget(b)
         v.addLayout(row)
-        rl.addWidget(g)
-        rl.addStretch(0)
+        rl.addWidget(self.sec_defaults, 0)
 
         sa = QScrollArea(); sa.setWidgetResizable(True); sa.setWidget(right)
         split = QSplitter(Qt.Horizontal)
         split.addWidget(left); split.addWidget(sa)
-        split.setStretchFactor(0, 1); split.setStretchFactor(1, 1)
-        split.setSizes([420, 700])
+        split.setStretchFactor(0, 1); split.setStretchFactor(1, 2)
+        split.setSizes([380, 780])
         self.setCentralWidget(split)
 
         for w in (self.sp_xmin, self.sp_xmax, self.sp_Lmin, self.sp_Lmax,
@@ -194,6 +207,34 @@ class MainWindow(QMainWindow):
         self._sc = QShortcut(QKeySequence("Ctrl+Shift+A"), self)
         self._sc.activated.connect(self._auto_defaults)
         self._selector = None
+        self._sections = [self.sec_wins, self.sec_help, self.sec_lib,
+                          self.sec_params, self.sec_defaults]
+
+    def _set_all_sections(self, on: bool):
+        for s in getattr(self, "_sections", []):
+            s.set_expanded(on)
+
+    def _sync_file_combo(self):
+        """参数树的“显示文件”下拉: 全部 / 每个已加载文件。"""
+        if not hasattr(self, "cmb_file"):
+            return
+        self.cmb_file.blockSignals(True)
+        cur = self.cmb_file.currentData()
+        self.cmb_file.clear()
+        self.cmb_file.addItem("全部文件", None)
+        for path, src in self.sess.sources.items():
+            self.cmb_file.addItem(f"{src.label}  ({len(src.metrics)})", path)
+        idx = self.cmb_file.findData(cur)
+        self.cmb_file.setCurrentIndex(idx if idx >= 0 else 0)
+        self.cmb_file.blockSignals(False)
+        self.tree.file_filter = self.cmb_file.currentData()
+        self.tree.rebuild()
+
+    def _on_file_filter(self):
+        if self._loading:
+            return
+        self.tree.file_filter = self.cmb_file.currentData()
+        self.tree.rebuild()
 
     def _make_menu(self):
         mb = self.menuBar()
@@ -458,11 +499,11 @@ class MainWindow(QMainWindow):
         self.sess.add_source(src)
         if entry.get("id"):
             self.lib_panel.loaded_ids.add(entry["id"])
-        self.tree.rebuild()
         self.lib_panel.rebuild()
-        self._reconcile()          # 打开该文件的第一个参数窗口(双击即见)
+        self._sync_file_combo()      # 只加载数据, 图像由用户双击参数打开
         self.statusBar().showMessage(
-            f"已打开 {entry.get('name')}({len(src.metrics)} 个参数)", 5000)
+            f"已加载 {entry.get('name')}({len(src.metrics)} 个参数), "
+            f"双击参数即可打开窗口", 6000)
 
     def _lib_unload(self, entry):
         path = self.library.resolve(entry)
@@ -471,9 +512,10 @@ class MainWindow(QMainWindow):
                 self.sess.close_source(cand)
         if entry.get("id"):
             self.lib_panel.loaded_ids.discard(entry["id"])
-        self.tree.rebuild()
-        self.lib_panel.rebuild()
+        # 卸载数据 -> 关掉它的窗口
         self._reconcile()
+        self.lib_panel.rebuild()
+        self._sync_file_combo()
 
     # ================= 会话 =================
     def _save_session(self):
@@ -488,6 +530,8 @@ class MainWindow(QMainWindow):
             pass
 
     def _restore_session(self):
+        """启动时只恢复**数据**(库文件 + 默认约束), **不自动打开图像**;
+        用户双击参数/库条目自己打开。"""
         st = self.library.load_session()
         if not st:
             return
@@ -507,26 +551,17 @@ class MainWindow(QMainWindow):
                 n += 1
             except Exception:
                 continue
+        # 不恢复勾选与窗口: 让用户自己双击打开
+        for path in list(self.sess.checked):
+            self.sess.checked[path] = set()
+        self.sess.active = {p: "" for p in self.sess.sources}
         self.lib_panel.rebuild()
-        self.tree.rebuild()
         self._sync_defaults_ui()
-        self._reconcile()
-        # 恢复上次的窗口(含各自约束)
-        for item in (st.get("windows") or []):
-            key = (item.get("path"), item.get("base"))
-            win = self.windows.get(key)
-            if win is None:
-                continue
-            vd = item.get("view") or {}
-            for k, val in vd.items():
-                if hasattr(win.view, k):
-                    setattr(win.view, k,
-                            tuple(val) if k == "x_metric" and val else val)
-            win.refresh(force=True)
-        if n or self.windows:
+        self._sync_file_combo()
+        if n:
             self.statusBar().showMessage(
-                f"已恢复上次会话: {n} 个库文件 / {len(self.windows)} 个窗口",
-                6000)
+                f"已恢复 {n} 个库文件(未自动打开图像, "
+                f"双击参数或库条目即可打开)", 8000)
 
     def closeEvent(self, ev):
         self._save_session()
@@ -566,13 +601,12 @@ class MainWindow(QMainWindow):
                 else:
                     continue
                 break
-        self.tree.rebuild()
         self._auto_defaults()
-        self._reconcile()          # 已勾选的参数(每个文件默认第一个)自动开窗
+        self._sync_file_combo()    # 只列出参数, 不自动开图像
         self.statusBar().showMessage(
             f"已载入 {len(sources)} 个文件 "
             f"({sum(len(s.metrics) for s in sources.values())} 个参数, "
-            f"{time.time()-t0:.2f}s)", 8000)
+            f"{time.time()-t0:.2f}s); 双击参数即可打开窗口", 9000)
         if errs:
             print("load errors:", errs)
 
@@ -581,7 +615,7 @@ class MainWindow(QMainWindow):
         self.sess.remove_all()
         self.lib_panel.loaded_ids.clear()
         self.lib_panel.rebuild()
-        self.tree.rebuild()
+        self._sync_file_combo()
 
     def _toggle_wheel_guard(self, on: bool):
         if self.wheel_filter is not None:

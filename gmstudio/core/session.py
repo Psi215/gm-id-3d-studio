@@ -104,15 +104,15 @@ class Session:
         pending = getattr(self, "_pending_checked", {}).get(src.path)
         if pending:
             self.checked[src.path] = {b for b in pending if b in src.metrics}
-        if not self.checked[src.path] and src.metrics:
-            first = next(iter(src.sorted_metrics()))
-            self.checked[src.path].add(first.base)
+        # 载入时**不**默认勾选任何参数(勾选=开窗), 由用户双击/勾选决定
         pa = getattr(self, "_pending_active", {}).get(src.path)
         if pa in src.metrics:
             self.active[src.path] = pa
-        else:
+        elif self.checked[src.path]:
             self.active.setdefault(src.path,
                                    next(iter(self.checked[src.path])))
+        else:
+            self.active.setdefault(src.path, "")
         self.dirty()
 
     def remove_all(self):
