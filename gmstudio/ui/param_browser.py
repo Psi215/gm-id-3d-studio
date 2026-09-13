@@ -25,6 +25,7 @@ class ParamTree(QWidget):
         super().__init__(parent)
         self.session = session
         self.on_changed = on_changed or (lambda: None)
+        self.dclick_handler = None      # 外部(主窗口)可接管双击行为
         self._notify_pending = False
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -83,6 +84,21 @@ class ParamTree(QWidget):
             top.setExpanded(True)
         self.tree.blockSignals(False)
 
+    def sync_states(self):
+        """只更新勾选状态, 不重建整棵树(勾选/取消时更流畅)。"""
+        self.tree.blockSignals(True)
+        for i in range(self.tree.topLevelItemCount()):
+            top = self.tree.topLevelItem(i)
+            for j in range(top.childCount()):
+                it = top.child(j)
+                d = it.data(0, Qt.UserRole)
+                if not d or d[0] != "metric":
+                    continue
+                _tag, path, base = d
+                on = base in self.session.checked.get(path, set())
+                it.setCheckState(0, Qt.Checked if on else Qt.Unchecked)
+        self.tree.blockSignals(False)
+
     def _on_item(self, item, _col):
         data = item.data(0, Qt.UserRole)
         if not data or data[0] != "metric":
@@ -93,6 +109,9 @@ class ParamTree(QWidget):
         self._defer_notify()
 
     def _on_dclick(self, item, _col):
+        if self.dclick_handler is not None:
+            self.dclick_handler(item)
+            return
         data = item.data(0, Qt.UserRole)
         if not data or data[0] != "metric":
             return

@@ -62,7 +62,7 @@ def load_file(path: str) -> Source:
         raise ValueError(f"无法解析 {label}: {e}") from e
     for d in dss:
         m = Metric(base=d.metric, display=d.metric,
-                   source_label=label,
+                   source_label=label, source_path=src.path,
                    x_name=getattr(d, "x_name", "X"),
                    profile=getattr(d, "profile", None),
                    raw_db=bool(getattr(d, "raw_db", False)))
@@ -111,7 +111,7 @@ def _load_wide(src: Source, header, data_rows, parsed) -> Source:
         if metric is None:
             name, prof = _metric_name(base, src.path)
             metric = Metric(base=base, display=name,
-                            source_label=src.label,
+                            source_label=src.label, source_path=src.path,
                             x_name=src.x_name, profile=prof,
                             raw_db=_gm.is_raw_db(base, prof))
             src.metrics[base] = metric

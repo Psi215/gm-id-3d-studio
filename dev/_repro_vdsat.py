@@ -34,10 +34,13 @@ def pump(app, n=10, dt=0.02):
 
 
 def main() -> int:
+    if not os.path.exists(TOTAL):
+        print("SKIP: 找不到 total.csv(已删除), 本压力扫描跳过。")
+        return 0
     from PySide6.QtWidgets import QApplication
     app = QApplication([])
     from gmstudio.ui.viewer import MainWindow
-    w = MainWindow()
+    w = MainWindow(restore=False)
     w.open_paths([TOTAL])
     pump(app, 30)
     src = w.sess.sources[TOTAL]

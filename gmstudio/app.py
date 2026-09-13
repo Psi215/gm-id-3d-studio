@@ -16,10 +16,12 @@ def main(argv=None) -> int:
 
     from .ui.theme import apply
     from .ui.viewer import MainWindow
+    from .ui.widgets import install_no_wheel_filter
 
     app = QApplication(argv)
     app.setApplicationName("gm/ID 设计数据工作室")
     apply(app, dark=False)
+    install_no_wheel_filter(app)      # 悬停滚轮不改数值(防误触)
     files = [a for a in argv[1:] if not a.startswith("-")]
     win = MainWindow(initial_files=files or None)
     win.show()

@@ -58,7 +58,9 @@ _PROFILES = (
     MetricProfile(
         "vdsat",
         ("vdsat", "vds_sat", "vdsat(v)", "vdssat", "vds(sat)", "vds,sat",
-         "vds sat", "vds(sat)(v)", "vdsats"),
+         "vds sat", "vds(sat)(v)", "vdsats",
+         # 常见导出拼写错误(字母顺序颠倒), 例如 "vdast"
+         "vdast", "vdsatt", "vdsat_s"),
         unit="V", kind="volt", direction="min", name="Vdsat",
     ),
     MetricProfile(

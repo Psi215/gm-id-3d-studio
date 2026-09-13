@@ -7,6 +7,7 @@ venv/
 
 # 用户本地数据与重命名(勿入仓库)
 csvdata_extras/
+library/
 *.meta.json
 
 # 开发脚本产物
