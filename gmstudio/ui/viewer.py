@@ -32,7 +32,8 @@ from .widgets import CollapsibleSection, install_no_wheel_filter, mkspin
 class MainWindow(QMainWindow):
     def __init__(self, initial_files=None, restore: bool = True):
         super().__init__()
-        self.setWindowTitle("gm/ID 设计数据工作室 · 控制台")
+        from .. import __version__
+        self.setWindowTitle(f"gm/ID 设计数据工作室 v{__version__} · 控制台")
         self.resize(1180, 820)
         self.sess = sessmod.Session()
         self.library = Library()
@@ -627,10 +628,12 @@ class MainWindow(QMainWindow):
         apply_theme(QApplication.instance(), self.dark)
 
     def _about(self):
+        from .. import __version__
         QMessageBox.about(
-            self, "gm/ID 设计数据工作室",
+            self, f"gm/ID 设计数据工作室 v{__version__}",
             "控制台负责数据与窗口;每个参数在**独立窗口**里绘制,各自拥有\n"
             "范围/对数轴/平滑/显示单位/查表阈值,互不影响。\n\n"
             "· 三维曲面不常驻: 在 2D 窗口里点「三维曲面…」按需打开;\n"
             "· 2D 窗口内: ＋竖线/＋横线 拖动读交点值, 测斜率(A→B) 取两点;\n"
-            "· 库管理: 导入一次, 以后勾选即加载; 会话(窗口与各自约束)自动恢复。")
+            "· 库管理: 双击条目加载/卸载; 启动只恢复数据与默认约束。\n\n"
+            "许可: MIT · 致谢: Binah-Dev (PR #1) 与 DeepSeek AI 协作开发")
